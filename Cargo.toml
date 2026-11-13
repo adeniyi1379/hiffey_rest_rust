@@ -1,0 +1,81 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pos-core",
+    "crates/pos-types",
+    "crates/pos-server",
+    "crates/pos-print",
+    "crates/pos-ui",
+    "crates/pos-app/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "proprietary"
+
+[workspace.dependencies]
+# internal
+pos-core = { path = "crates/pos-core" }
+pos-types = { path = "crates/pos-types" }
+pos-server = { path = "crates/pos-server" }
+pos-print = { path = "crates/pos-print" }
+
+# serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# ids and time
+uuid = { version = "1", features = ["v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# web server
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+
+# database
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+
+# security
+argon2 = "0.5"
+rand = "0.9"
+
+# images
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+# diagnostics
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+
+# ui
+leptos = { version = "0.8", features = ["csr"] }
+console_error_panic_hook = "0.1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+gloo-net = { version = "0.6", features = ["http", "websocket"] }
+gloo-storage = "0.3"
+gloo-timers = { version = "0.3", features = ["futures"] }
+futures = "0.3"
+web-sys = { version = "0.3", features = ["Window", "KeyboardEvent", "Event", "EventTarget", "Blob", "Document", "Element", "File", "FileList", "HtmlAnchorElement", "HtmlElement", "HtmlInputElement", "Url"] }
+js-sys = "0.3"
+
+# desktop shell
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "deny"
+todo = "warn"
+unimplemented = "warn"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true

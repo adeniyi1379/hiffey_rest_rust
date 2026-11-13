@@ -1,0 +1,17 @@
+/target
+**/target
+**/dist
+node_modules/
+crates/pos-ui/styles/output.css
+
+# runtime data
+*.db
+*.db-wal
+*.db-shm
+/data
+/backups
+
+# tooling
+.DS_Store
+Thumbs.db
+*.log

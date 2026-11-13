@@ -1,0 +1,620 @@
+===== PAGE 1 =====
+Restaurant POS: Requirements and Technical Design   |   Page 1 
+Restaurant POS System 
+Requirements and Technical Design 
+ 
+One document for the owner/manager and the development team: what the system must do, and how it 
+will be built. 
+Item Detail 
+Business Mini restaurant (converted from a kitchen), Nigeria 
+Menu Fried rice, jollof rice, dodo, salad, pastries, drinks. No local food. 
+Hardware Two Windows desktop PCs, each with a receipt printer. Starlink internet. 
+Service modes Dine-in and takeaway 
+Version Draft 1.1 (November 2026) 
+Parts Part 1: Owner view (what). Part 2: Technical design (how). Part 3: Feature-to-
+implementation map. Part 4: Assumptions and open items. 
+ 
+  
+===== PAGE 2 =====
+Restaurant POS: Requirements and Technical Design   |   Page 2 
+Part 1: Owner View (What the System Must Do) 
+1.1 Purpose 
+Give the restaurant a fast, simple point-of-sale system that records every sale, tracks how much cooked 
+food, pastry and drink is available and sold, records which worker handled each sale, and keeps 
+working when the internet is down. Raw ingredients are not tracked. 
+1.2 In scope and out of scope 
+• In scope: menu and packs, order taking, discounts, VAT, manual payment recording (cash, bank 
+transfer, card on a separate machine), receipts, cooked-food and drink stock, worker accounts 
+with generated PINs, roles, reports, offline operation, background cloud synchronisation. 
+• Out of scope for this build: manager web application (designed later), automatic bank payment 
+confirmation, raw-ingredient and recipe costing, customer loyalty, delivery orders, kitchen display 
+screen, worker shifts and shift-based cash reconciliation (to be revisited after development). 
+ 
+1.3 Key terms 
+Term Meaning 
+Spoon The one standard measure for food. 1 spoon means the same for every food item. The 
+kitchen must use a standard serving spoon. 
+Unit (count) Items sold by count: drinks (bottle/can/cup) and pastries. Dodo is counted in pieces. 
+Pack A saved bundle of items with set quantities, sold with one tap (for example the Standard 
+Pack). 
+Custom plate A plate the cashier builds by entering the number of spoons per item. 
+Batch A quantity of food the kitchen records as cooked (for example 150 spoons of jollof). 
+Stock ledger The permanent list of every stock movement (cooked, sold, wasted, adjusted). The 
+balance is calculated from it. 
+Terminal A / B Terminal A is the main PC that holds the data. Terminal B is the second PC that connects 
+to A. 
+ 
+1.4 How the two terminals work 
+• Terminal A runs the shop database and the point-of-sale screens. Terminal B shows the same 
+screens and connects to A over the shop network. 
+• Both terminals see the same menu, stock and sales at the same time. 
+• If Terminal A is switched off or fails, Terminal B cannot make transactions until A is back. This is a 
+deliberate design decision. 
+• Internet (Starlink) is only needed to copy data to the cloud. Selling does not need internet. 
+• Recommended: a UPS (battery backup) for Terminal A, the router and the Starlink unit. 
+ 
+1.5 Functional requirements 
+Menu and units (MENU) 
+ID Requirement 
+MENU-1 Manager can create, edit and deactivate items with name, category, unit type (spoon or count), price per 
+unit, and active status. 
+===== PAGE 3 =====
+Restaurant POS: Requirements and Technical Design   |   Page 3 
+ID Requirement 
+MENU-2 Food is measured in spoons; drinks and pastries are counted units; dodo is counted in pieces. 
+MENU-3 Categories: Rice, Sides, Pastries, Drinks, Packs. Manager can add categories. 
+MENU-4 Each item has a price per unit (for example price per spoon of jollof). A portion price is quantity x price 
+per unit. 
+MENU-5 Optional modifiers and notes (for example "no pepper"), with an optional extra price. 
+MENU-6 Price changes take effect from a chosen date and time. Past sales keep the price they were sold at. 
+MENU-7 Only manager and owner can change the menu. 
+ 
+Packs and custom plates (PACK) 
+ID Requirement 
+PACK-1 Manager can create a pack made of several items with set quantities. Example Standard Pack: 2 spoons 
+jollof + 2 spoons fried rice + 5 pieces dodo + 1 spoon salad + 1 bottle Coke. 
+PACK-2 Pack price is calculated automatically from the current prices of its items. Manager can instead set a 
+fixed pack price. 
+PACK-3 Cashier adds a whole pack to an order with one tap. 
+PACK-4 Selling a pack reduces the stock of every item inside it. 
+PACK-5 Cashier can build a custom plate by choosing an item and entering spoons (for example 3 spoons of 
+jollof). Price = spoons x price per spoon. 
+PACK-6 Receipt shows a pack as one line with its contents listed underneath. 
+PACK-7 Manager can edit, duplicate and deactivate packs. 
+ 
+Order taking (ORD) 
+ID Requirement 
+ORD-1 Fast touch and keyboard screen with category tabs, pack buttons and a running order summary. 
+ORD-2 Order types: dine-in (with table number) and takeaway (with optional packaging fee). 
+ORD-3 Cashier can change quantities, remove lines, hold an order and resume it before payment. 
+ORD-4 Items that are sold out are greyed out and cannot be added. 
+ORD-5 Every order has a unique number that identifies the terminal (for example T1-0001, T2-0001). 
+ORD-6 A paid order cannot be edited or deleted. It can only be voided or refunded with a manager PIN and a 
+reason. 
+ 
+Discounts (DISC) 
+ID Requirement 
+DISC-1 Manager can create discounts by percentage (for example 10%) or fixed amount off. 
+DISC-2 A discount can apply to all food items, a category, a single item, or a pack. 
+DISC-3 A store-wide sale switch applies a discount to every food item with one activation. 
+DISC-4 Discounts can be scheduled (start and end date/time) or switched on and off manually. 
+DISC-5 Active discounts apply automatically at the till and appear as a separate line on the receipt. 
+DISC-6 Cashiers cannot create discounts. A one-off manual discount needs a manager PIN and a reason. 
+===== PAGE 4 =====
+Restaurant POS: Requirements and Technical Design   |   Page 4 
+ID Requirement 
+DISC-7 Each sale records the original price, the discount and the final price. 
+ 
+VAT (VAT) 
+ID Requirement 
+VAT-1 VAT is one global setting controlled by manager/owner: VAT on or off, the rate, and the mode. 
+VAT-2 Mode "inclusive": menu prices already contain VAT. Mode "added on top": VAT is added to the order 
+total at checkout. 
+VAT-3 The setting applies to every sale automatically. It is not set per item. 
+VAT-4 VAT amount is shown on the receipt and stored on every order. 
+VAT-5 Changing the VAT setting affects only new sales. Old sales keep their VAT. 
+ 
+Payments (PAY) 
+ID Requirement 
+PAY-1 Payment methods: cash, bank transfer, and card through the separate POS machine. There is no 
+connection to any bank. 
+PAY-2 Cash: cashier enters the amount given and the system shows change due. 
+PAY-3 Bank transfer: cashier confirms manually after seeing the credit alert; optional reference or sender name 
+field. 
+PAY-4 Card: cashier confirms manually after the card machine approves; optional approval code field. 
+PAY-5 An order can be split across payment methods. 
+PAY-6 Totals per payment method, for any date range and for each worker, are available for checking against 
+the cash drawer, bank app and card machine report. 
+ 
+Receipts and printing (RCPT) 
+ID Requirement 
+RCPT-1 Thermal receipt with business name, order number, order type, items, discount, VAT, total, payment 
+method, cashier and time. 
+RCPT-2 Reprints are labelled "duplicate" and every reprint is recorded. 
+RCPT-3 Optional serving slip for the kitchen or the person handing out food. 
+RCPT-4 If the printer is off or out of paper, the sale is still saved and the receipt can be printed later. 
+ 
+Cooked stock (STK) 
+ID Requirement 
+STK-1 Kitchen lead or manager records each cooked batch (for example jollof 150 spoons, dodo 100 pieces). 
+STK-2 Remaining quantity of each item updates live on both terminals after every sale. 
+STK-3 Pastries and drinks: opening stock, restock entries, and remaining count per sale. 
+STK-4 Low-stock warning level per item, and automatic "sold out" at zero. 
+STK-5 Wastage log with reason (spoiled, staff meal, giveaway, mistake). 
+===== PAGE 5 =====
+Restaurant POS: Requirements and Technical Design   |   Page 5 
+ID Requirement 
+STK-6 End-of-day count: staff enter what is actually left; the system shows the difference from what it expected 
+and stores it. 
+STK-7 Stock history cannot be erased. Corrections are added as new entries. 
+ 
+Workers and roles (USR) 
+ID Requirement 
+USR-1 Owner or manager creates a worker by entering the worker's name. The system generates a unique PIN 
+and shows it once, so it can be given to the worker. 
+USR-2 A worker logs in with their PIN only. The system then knows who is selling. 
+USR-3 Every order, payment, void, discount, reprint and stock entry is recorded against the worker who did it. 
+USR-4 Owner or manager can reset a worker's PIN (a new one is generated) and deactivate a worker who has 
+left. Deactivated workers keep their history but cannot log in. 
+USR-5 Roles: cashier (take orders and payments, print receipts), manager (also menu, packs, discounts, VAT, 
+stock entry, voids, workers and reports), owner (everything, including settings and backups). 
+USR-6 Workers can be logged in on both terminals; a worker logs out manually, or is logged out automatically 
+after a period of inactivity. 
+USR-7 There are no shifts in this version. Reports show each worker's sales for any date range instead. 
+USR-8 Important actions (sale, void, discount, price change, stock change, reprint, login, PIN reset) are logged 
+with who, which terminal and when. 
+ 
+Reports (RPT) 
+ID Requirement 
+RPT-1 Daily, weekly and monthly sales totals. 
+RPT-2 Sales by item, category, pack, cashier, payment method and order type (dine-in/takeaway). 
+RPT-3 Cooked vs sold vs wasted per item, and end-of-day differences. 
+RPT-4 Discounts given, VAT collected, voids and refunds. 
+RPT-5 Worker summary: sales, voids, discounts and payment totals per worker for any date range. 
+RPT-6 Best sellers and slow movers. 
+RPT-7 Export to Excel/CSV. 
+ 
+Offline and synchronisation (SYNC) 
+ID Requirement 
+SYNC-1 Selling continues normally with no internet, as long as Terminal A is running and Terminal B can reach it. 
+SYNC-2 All data is copied to a cloud database in the background whenever Starlink is available. 
+SYNC-3 Screen shows sync status: synced, waiting, and time of last sync. 
+SYNC-4 A daily automatic backup is kept on Terminal A and also copied to the cloud. 
+SYNC-5 The cloud copy is prepared so a manager web app can be built later. 
+ 
+===== PAGE 6 =====
+Restaurant POS: Requirements and Technical Design   |   Page 6 
+1.6 A typical day 
+• Morning: manager logs in, checks prices, discounts and VAT setting. Kitchen lead enters the 
+cooked batches. Cashiers log in with their PINs. 
+• During service: cashiers take orders using packs or custom plates, record payment, print 
+receipts. Stock falls live; items go "sold out" automatically. Extra batches are added when more 
+food is cooked. 
+• Close: wastage is logged, remaining food is counted, manager reviews the day report, backup 
+runs and sync completes when internet is available. 
+  
+===== PAGE 7 =====
+Restaurant POS: Requirements and Technical Design   |   Page 7 
+Part 2: Technical Design (How It Will Be Built) 
+2.1 Architecture 
+Component Runs on Role 
+POS app (Tauri) Terminal A and B Desktop window with the Rust-based UI. Installed on both PCs. 
+Local server (axum) Terminal A only Business logic and LAN API. Only process that writes to the 
+database. 
+Database (SQLite) Terminal A only Source of truth during operation. 
+Sync worker Terminal A only Background task that pushes data to the cloud when internet is 
+available. 
+Print service Each terminal Sends ESC/POS receipts to the local printer. 
+Cloud API + database Cloud (later) Receives synced data; will feed the manager web app (React). 
+ 
+• Run modes: at first launch each PC is set to "Server + Client" (A) or "Client" (B). 
+• One code path for the UI: on both terminals the UI talks to the same LAN HTTP/WebSocket 
+API. On Terminal A the address is localhost; on Terminal B it is the fixed IP of Terminal A. 
+• Network: Terminal A has a fixed LAN address (static IP or DHCP reservation on the router). The 
+server listens on the LAN only. 
+• Failure behaviour: if Terminal B cannot reach A, it shows "Server offline" and blocks selling. 
+ 
+2.2 Technology stack 
+Layer Choice Reason 
+Desktop shell Tauri 2 (Rust) Small installer, Windows support, native access to 
+printers and the file system. 
+Core language Rust (stable) Memory safety and speed; all business rules live in 
+Rust and can be unit tested. 
+Desktop UI Leptos (client-side rendering) 
+built with Trunk, styled with 
+Tailwind CSS 
+Keeps the whole desktop app in Rust. Works well 
+inside Tauri. Dioxus is the alternative, but it brings its 
+own desktop renderer, which makes Tauri 
+unnecessary. 
+LAN server axum + tokio + tower-http Standard async Rust web stack, with WebSocket 
+support. 
+Database access sqlx (SQLite) with versioned 
+migrations 
+Checked queries, migrations in the repo, same 
+approach reusable with PostgreSQL in the cloud. 
+Database SQLite in WAL mode Single writer (the server), nothing to install or 
+administer, simple backup. 
+Serialisation serde, serde_json Shared request/response types between server and UI. 
+IDs and time uuid (v7), time or chrono Time-sortable unique IDs created on any terminal 
+without clashes. 
+Security argon2 (PIN hashing), random 
+session tokens 
+Safe PIN storage and server-side role checks. 
+Printing ESC/POS command builder + 
+Windows print spooler (windows 
+crate) 
+Works with common 58mm/80mm thermal printers, 
+USB or network. 
+Cloud sync client reqwest over HTTPS Pushes outbox batches with retry. 
+Logging tracing + rolling log files Local diagnostics without internet. 
+===== PAGE 8 =====
+Restaurant POS: Requirements and Technical Design   |   Page 8 
+Layer Choice Reason 
+Cloud (later) axum + PostgreSQL; React web 
+app for managers 
+Same language on the server; React for the web 
+dashboard. 
+Build and release Cargo workspace, GitHub 
+Actions, Tauri bundler 
+(MSI/NSIS) 
+Repeatable Windows installers; Tauri updater can be 
+added later. 
+ 
+2.3 Project structure (Cargo workspace) 
+Crate Contents 
+pos-core Pure business rules with no I/O: money, units, pricing, discounts, VAT, pack expansion, 
+stock ledger rules. Most unit tests live here. 
+pos-types Shared data types and API request/response models used by server, UI and sync. 
+pos-server axum routes, WebSocket events, auth, sqlx repositories, migrations. 
+pos-sync Outbox reader, cloud push client, retry and status tracking. 
+pos-print Receipt layout and ESC/POS output; spooler integration. 
+pos-ui Leptos screens: sale, packs, menu admin, stock, workers, reports, settings. 
+pos-app Tauri shell: starts the server in Server mode, hosts the UI window, handles printing 
+commands and first-run setup. 
+ 
+2.4 Data model 
+Every table uses a UUIDv7 primary key plus created_at, updated_at and terminal_id. Money is stored 
+as integer kobo. Quantities are stored as integers (spoons, pieces, bottles). 
+Table Key fields and purpose 
+users name, role, pin_hash, active, created_by, pin_reset_at. Worker identity, login and 
+permissions. 
+categories name, sort_order. 
+items name, category_id, unit_type (spoon/count), price_per_unit_kobo, low_stock_level, 
+active. 
+item_prices item_id, price_kobo, effective_from. Dated price history. 
+modifiers name, extra_price_kobo, extra_units (optional). 
+packs name, pricing_mode (calculated/fixed), fixed_price_kobo, active. 
+pack_components pack_id, item_id, quantity. 
+discounts name, type (percent/fixed), value, scope (all_food/category/item/pack), scope_ref, 
+starts_at, ends_at, active. 
+settings vat_enabled, vat_rate_bp, vat_mode (inclusive/exclusive), business details, receipt text, 
+packaging fee. 
+orders order_no, type, table_no, status, subtotal, discount_total, vat_total, total, user_id (the 
+worker who sold), terminal_id. 
+order_lines order_id, item_id or pack_id, quantity, unit_price, discount_applied, line_total. 
+order_line_components order_line_id, item_id, quantity. A pack broken into its items at the time of sale. 
+payments order_id, method (cash/transfer/card), amount, reference, confirmed_by, confirmed_at. 
+===== PAGE 9 =====
+Restaurant POS: Requirements and Technical Design   |   Page 9 
+Table Key fields and purpose 
+stock_ledger item_id, movement_type 
+(batch_in/sale/void_return/wastage/adjustment/restock/count_diff), quantity (+/-), ref_id, 
+reason, user_id. Append-only. 
+stock_balances item_id, balance. Cached total, updated in the same transaction as every ledger row. 
+stock_counts item_id, counted_qty, expected_qty, difference, counted_at. 
+print_jobs order_id, type (receipt/duplicate/slip), status, attempts. 
+audit_log user_id, terminal_id, action, entity, entity_id, details, at. 
+sync_outbox entity, entity_id, operation, payload, created_at, synced_at, attempts. 
+sync_state last_success_at, last_error, pending_count. 
+ 
+2.5 Core business rules 
+Money and units 
+• All money is integer kobo. No floating-point numbers anywhere in pricing. 
+• Rounding happens once per order total step and is defined in pos-core (round half up to the 
+nearest kobo). 
+• Food items use spoon as the base unit. Count items (drinks, pastries, dodo) use pieces. The unit 
+label is a setting. 
+Pricing order (fixed sequence) 
+• 1. Line price = quantity x unit price (or pack price: calculated sum of components, or fixed price). 
+• 2. Apply the best applicable active discount to each line (see precedence below). 
+• 3. Add packaging fee for takeaway if enabled. 
+• 4. Apply VAT according to the global mode. 
+• 5. Total = result of step 4. All amounts stored on the order for later reports. 
+VAT formulas (rate in basis points, for example 750 = 7.5%) 
+Added on top:  vat = round(net x rate_bp / 10000);  total = net + vat 
+Inclusive:     net = round(gross x 10000 / (10000 + rate_bp));  vat = gross - net 
+Here net is the amount after discounts and fees. The VAT rate is whatever the manager sets; it is never 
+hard-coded. Confirm the correct rate and treatment with your accountant. 
+Discount precedence (assumption to confirm) 
+• Discounts do not stack by default. For each line the system applies the single discount that gives 
+the customer the biggest saving, unless a manual manager discount is entered, which replaces it. 
+• Scope specificity is item/pack, then category, then store-wide, used only to break ties. 
+• Percent discounts round once per line. Fixed-amount discounts are shared across eligible lines in 
+proportion to their value. 
+Pack expansion and stock deduction 
+• When a pack is sold, the order line stores the pack, and order_line_components stores each item 
+and quantity as they were at that moment. 
+• The same database transaction writes one stock_ledger row (negative) per component and 
+updates stock_balances. 
+• If any component lacks stock, the whole sale line is rejected with a clear message naming the 
+item. 
+===== PAGE 10 =====
+Restaurant POS: Requirements and Technical Design   |   Page 10 
+Stock ledger 
+• Balance = sum of ledger quantities. stock_balances is a cached copy kept consistent inside the 
+same transaction. 
+• Voids and refunds add a positive "void_return" row only if the manager marks the food as 
+returned to stock; otherwise the quantity is logged as wastage. 
+• End-of-day count writes a count_diff ledger row so the balance matches reality, and keeps the 
+difference for reports. 
+Overselling protection 
+• The sale is committed with BEGIN IMMEDIATE on SQLite, so only one terminal at a time can 
+take the last portion. 
+• The check "enough stock" and the deduction happen in the same transaction. 
+Order numbers, voids and edits 
+• Order number = terminal prefix + sequence, generated by the server inside the transaction. 
+• Paid orders are immutable. A void creates a linked reversing record, with manager PIN, reason 
+and audit entry. 
+ 
+2.6 LAN API (outline) 
+Method Path Purpose 
+POST /auth/login Worker PIN login, returns session token, worker identity and 
+role. 
+GET /menu Items, categories, packs, active discounts, VAT settings. 
+POST/PUT /admin/items, /admin/packs, 
+/admin/discounts 
+Manager menu, pack and discount management. 
+PUT /admin/settings VAT, receipt text, packaging fee, low-stock levels 
+(owner/manager). 
+POST /orders Create order or save held order. 
+PUT /orders/{id} Edit lines before payment. 
+POST /orders/{id}/pay Record payments; closes the order and deducts stock. 
+POST /orders/{id}/void Void or refund with manager PIN and reason. 
+POST /stock/batches Record cooked batch. 
+POST /stock/wastage, /stock/restock, 
+/stock/count 
+Wastage, restock and end-of-day count. 
+GET /stock/balances Live balances. 
+POST/PUT /admin/workers Create worker (name; PIN generated and shown once), reset 
+PIN, deactivate. 
+GET /reports/* Report queries with date filters; CSV export. 
+POST /print/{order_id} Queue receipt or reprint. 
+GET /sync/status Sync state for the status indicator. 
+WS /events Push events: stock changed, item sold out, discount/VAT 
+changed, order paid. 
+ 
+===== PAGE 11 =====
+Restaurant POS: Requirements and Technical Design   |   Page 11 
+2.7 Security and permissions 
+• PINs are stored hashed with argon2. Session tokens are random and expire after inactivity or 
+when the worker logs out. 
+• PINs are generated by the system (random, 6 digits by default), never chosen by hand. The 
+system checks that a new PIN is not already in use by another worker, because login uses the 
+PIN alone. 
+• Repeated wrong PINs cause a temporary lockout on that terminal and are logged. 
+• Every endpoint checks the role on the server. The UI hiding a button is never the only protection. 
+• Manager PIN prompts for voids and manual discounts are verified by the server. 
+• The server listens only on the shop LAN. Optional TLS on the LAN can be added. 
+• Cloud traffic uses HTTPS only, with a per-restaurant API key stored securely on Terminal A. 
+• No endpoint deletes sales, payments or ledger rows. Corrections are new records. 
+ 
+2.8 Printing 
+• Receipts are built as ESC/POS commands for 58mm and 80mm thermal printers and sent 
+through the Windows print spooler (USB or network printers). 
+• print_jobs table keeps status and attempts. Failed prints retry and can be reprinted manually. 
+• Each terminal prints to its own printer; the printer name is a local setting on each PC. 
+• Receipt layout is configurable (business name, footer message, VAT line). 
+ 
+2.9 Offline operation and cloud synchronisation 
+Offline 
+Selling depends only on the shop network and Terminal A. Starlink affects synchronisation only. 
+Synchronisation design 
+• Outbox: every change writes a row into sync_outbox in the same transaction as the change itself. 
+• Worker: a background task on Terminal A sends batches to the cloud over HTTPS when a 
+connection check passes, with retry and backoff. It resumes from where it stopped after any 
+interruption. 
+• Idempotent uploads: every record has a UUID, so sending the same record twice never creates 
+duplicates. 
+• Append-only events: sales, payments, stock movements, wastage and counts are only ever 
+added, so the cloud never needs conflict resolution. 
+• Master data: menu, packs, prices, discounts and settings are changed on Terminal A and 
+pushed up. The cloud copy is read-only in this phase. 
+• Status: sync_state feeds the on-screen indicator (synced, waiting with count, last success time). 
+• Later: the cloud API (axum + PostgreSQL) accepts the batches; the React manager web app 
+reads from it. 
+ 
+2.10 Backup, recovery and failure behaviour 
+Situation Expected behaviour 
+Internet (Starlink) down Selling continues. Data waits in the outbox and syncs when internet returns. 
+Terminal A off or crashed Terminal B shows "Server offline" and cannot make transactions. When A 
+restarts, B reconnects automatically. 
+Terminal B off Terminal A continues alone. 
+===== PAGE 12 =====
+Restaurant POS: Requirements and Technical Design   |   Page 12 
+Situation Expected behaviour 
+Power cut Every sale is committed to the database before the receipt prints, so nothing 
+already recorded is lost. Unprinted receipts can be reprinted. 
+Printer off Sale is saved; receipt stays in the print queue. 
+Corrupt or lost database on A Restore the latest local backup, or the cloud copy; sync fills in the rest. 
+Disk full Warning on screen at a set threshold; backups pruned to a set number of 
+copies. 
+ 
+• Automatic SQLite online backups on Terminal A (for example at set intervals and at the end of the 
+trading day), stored in a separate folder, with a copy sent to the cloud when possible. 
+• Windows is set to start the POS app automatically on both PCs. 
+• Owner can start a manual backup and a restore from the settings screen. 
+ 
+2.11 Testing 
+• Unit tests (pos-core): pricing, packs, discounts, VAT in both modes, rounding, stock ledger 
+rules. These are the most important tests. 
+• Integration tests: two simulated terminals selling the last portion at the same time; pack sale with 
+a sold-out component; void and refund; end-of-day count. 
+• Sync tests: internet cut halfway through a batch; duplicate sends; restart during sync. 
+• Hardware tests: chosen printer models, paper-out, USB unplugged. 
+• Pilot: run the system alongside paper records for several days and compare totals before full use. 
+ 
+2.12 Build, installation and setup 
+• Tauri bundler produces a Windows installer. Same installer for both PCs; first-run wizard selects 
+Server + Client or Client. 
+• First-run wizard on Terminal A creates the database, the owner account, business details, VAT 
+setting and printer. 
+• First-run wizard on Terminal B asks for the fixed address of Terminal A and tests the connection. 
+• Continuous build in GitHub Actions; version number shown in the settings screen. 
+• Database migrations run automatically at server start, after a backup. 
+ 
+2.13 Delivery phases 
+Phase Scope Done when 
+1. Foundation Workspace, database schema and 
+migrations, auth and roles, server on A, UI 
+shell, Terminal B connection, settings. 
+Both PCs log in and see the same empty 
+system. 
+2. Selling Menu, units, packs, custom plates, orders, 
+discounts, VAT, payments, receipts and 
+printing. 
+Full sale from tap to printed receipt on both 
+terminals. 
+3. Stock and 
+control 
+Batches, live balances, sold-out, wastage, 
+counts, worker accounts and PINs, audit log. 
+A full day can be run, with every sale tied to a 
+worker. 
+4. Reports and 
+backup 
+Reports and CSV export, backup and restore. Owner can review a day and recover from a 
+backup. 
+5. Sync Outbox, sync worker, status indicator, cloud 
+receiving API. 
+Data appears in the cloud after internet 
+outages, with no duplicates. 
+===== PAGE 13 =====
+Restaurant POS: Requirements and Technical Design   |   Page 13 
+Phase Scope Done when 
+6. Pilot and 
+release 
+Parallel run, fixes, installer, staff training. Signed off by the owner. 
+Later React manager web app, remote editing, 
+loyalty, delivery, kitchen display. 
+Separate project. 
+  
+===== PAGE 14 =====
+Restaurant POS: Requirements and Technical Design   |   Page 14 
+Part 3: Feature-to-Implementation Map 
+This table links each owner requirement to the technical piece that delivers it, so both readers can 
+follow one feature from need to build. 
+Owner feature Where it lives How it is built 
+Spoon as the standard 
+unit (MENU-2, MENU-4) 
+items, pos-core unit_type and price_per_unit_kobo; integer 
+quantities; pricing in pos-core. 
+Standard pack in one tap 
+(PACK-1 to PACK-4) 
+packs, pack_components, 
+order_line_components 
+Pack price calculated from components or fixed; 
+components stored per sale; one ledger row per 
+component in the same transaction. 
+Custom spoons per item 
+(PACK-5) 
+Order UI, pos-core Cashier enters spoons; quantity x price per 
+spoon. 
+Store-wide discount 
+switch (DISC-3) 
+discounts, WebSocket events scope = all_food; change is pushed to both 
+terminals instantly. 
+VAT set by manager 
+(VAT-1 to VAT-5) 
+settings, pos-core vat_enabled, vat_rate_bp, vat_mode; formulas in 
+pos-core; amounts stored on each order. 
+Cash, transfer, card 
+(PAY-1 to PAY-6) 
+payments Manual confirmation fields; no bank API; totals 
+by method per worker and date. 
+Sold-out blocking (ORD-
+4, STK-4) 
+stock_balances, WebSocket events Server check inside the sale transaction; UI 
+greys out items on events. 
+Two terminals, no 
+overselling 
+SQLite WAL, axum Single writer; BEGIN IMMEDIATE transactions. 
+Terminal B blocked if A is 
+down 
+pos-ui, connection monitor Health check to A; UI disables selling and shows 
+"Server offline". 
+Workers and PIN login 
+(USR-1 to USR-8) 
+users, orders.user_id, audit_log Generated PIN hashed with argon2; every order 
+and action stores the worker; server-side role 
+checks; audit entries; worker report by date 
+range. 
+End-of-day difference 
+(STK-6) 
+stock_counts, stock_ledger count_diff ledger row and stored difference. 
+Receipts (RCPT-1 to 
+RCPT-4) 
+pos-print, print_jobs ESC/POS via Windows spooler; queue with retry; 
+duplicate marking. 
+Offline and cloud copy 
+(SYNC-1 to SYNC-5) 
+sync_outbox, pos-sync Outbox pattern, idempotent HTTPS batches, 
+UUID keys, append-only events. 
+Reports (RPT-1 to RPT-7) pos-server queries SQL over orders, lines, ledger and workers; CSV 
+export. 
+Manager web app (later) Cloud API + React Reads synced cloud data; not part of this build. 
+ 
+  
+===== PAGE 15 =====
+Restaurant POS: Requirements and Technical Design   |   Page 15 
+Part 4: Assumptions and Open Items 
+4.1 Decisions already made 
+• Two Windows PCs with printers; Terminal A is server + client, Terminal B is client only. 
+• If Terminal A is down, Terminal B cannot make transactions. 
+• SQLite behind a Rust server on Terminal A; Tauri with a Rust UI framework for the desktop app; 
+React for the later manager web app. 
+• Payments are manual: cash, bank transfer, card on a separate POS machine. 
+• One standard food unit (spoon); drinks and pastries use counted units. 
+• VAT is a global manager setting, inclusive or added on top. 
+• Manager web app is not part of this build. 
+• No worker shifts for now. Workers have a name and a system-generated PIN, and every sale is 
+linked to the worker. Shifts and shift-based cash reconciliation will be discussed after 
+development. 
+4.2 Assumptions to confirm 
+• Dodo is counted in pieces (as in the Standard Pack example). 
+• Discounts do not stack; the best single discount applies per line, and a manual discount replaces 
+it. 
+• Leptos is the Rust UI framework (recommended with Tauri). Dioxus is the alternative. 
+• Takeaway packaging fee is optional and set by the manager. 
+• Returned food after a void goes back to stock only if the manager marks it so; otherwise it is 
+logged as wastage. 
+• PINs are 6 digits by default (4-digit PINs are easier to guess). 
+4.3 Open items 
+# Item Owner 
+1 Confirm the VAT rate and treatment with an 
+accountant (the rate is a setting, not fixed in code). 
+Owner 
+2 Standardise the physical serving spoon and train the 
+kitchen on it. 
+Owner / kitchen 
+3 Choose printer models (58mm or 80mm, USB or 
+network) and test them early. 
+Owner / developer 
+4 Reserve a fixed IP address for Terminal A on the 
+router. 
+Developer 
+5 Choose the cloud hosting provider for the sync API 
+and database. 
+Owner / developer 
+6 Receipt design: business name, logo (optional), footer 
+text. 
+Owner 
+7 Low-stock levels and wastage reasons list. Manager 
+8 Initial menu, prices and pack definitions to load before 
+launch. 
+Manager 
+9 Acceptance tests and pilot duration. Owner / developer 
+10 Revisit worker shifts and cash-drawer reconciliation 
+after development. 
+Owner 
+ 
